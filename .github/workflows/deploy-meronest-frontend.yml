@@ -63,4 +63,7 @@ jobs:
             if [[ -n "${GHCR_USER:-}" && -n "${GHCR_TOKEN:-}" ]]; then
               echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u "$GHCR_USER" --password-stdin
             fi
-            sudo DEPLOY_ROOT=/opt/apps APP_SLUG=meronest SHARED_SQL_ROOT=/opt/shared/sqlserver /opt/apps/meronest/scripts/deploy_app.sh
+            sudo git -C /root/apps/meronest/frontend fetch origin
+            sudo git -C /root/apps/meronest/frontend reset --hard origin/master
+            sudo docker compose -f /opt/apps/meronest/infra/docker/docker-compose.prod.yml --env-file /opt/apps/meronest/infra/docker/.env build frontend
+            sudo DEPLOY_ROOT=/opt/apps APP_SLUG=meronest SKIP_PULL=true SHARED_SQL_ROOT=/opt/shared/sqlserver /opt/apps/meronest/scripts/deploy_app.sh
