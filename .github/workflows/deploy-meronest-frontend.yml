@@ -47,6 +47,20 @@ jobs:
     needs: build-and-push
     environment: production
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Copy frontend source to VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          source: "./*"
+          target: /root/apps/meronest/frontend
+          strip_components: 1
+
       - name: Deploy frontend release on VPS
         uses: appleboy/ssh-action@v1.2.0
         env:
@@ -63,7 +77,5 @@ jobs:
             if [[ -n "${GHCR_USER:-}" && -n "${GHCR_TOKEN:-}" ]]; then
               echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u "$GHCR_USER" --password-stdin
             fi
-            sudo git -C /root/apps/meronest/frontend fetch origin
-            sudo git -C /root/apps/meronest/frontend reset --hard origin/master
             sudo docker compose -f /opt/apps/meronest/infra/docker/docker-compose.prod.yml --env-file /opt/apps/meronest/infra/docker/.env build frontend
             sudo DEPLOY_ROOT=/opt/apps APP_SLUG=meronest SKIP_PULL=true SHARED_SQL_ROOT=/opt/shared/sqlserver /opt/apps/meronest/scripts/deploy_app.sh
