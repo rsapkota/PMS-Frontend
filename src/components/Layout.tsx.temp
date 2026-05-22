@@ -1,0 +1,274 @@
+import { useState, useEffect } from "react";
+import { Link, useLocation, useNavigate, Outlet } from "react-router-dom";
+import { useRole } from "@/hooks/useRole";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { 
+  Bell, Building2, FileText, Home, LayoutDashboard, Layers, 
+  LogOut, Search, Users, Wallet, Check, Settings, 
+  Clock, AlertTriangle, CheckCircle2, Menu, Wrench,
+  ChevronLeft, ChevronRight,
+  UserCircle, Briefcase, Key, SwitchCamera, Sparkles, Plus,
+  Calendar, CreditCard
+} from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+
+const INITIAL_NOTIFICATIONS = [
+  { id: 1, title: "Rent Received", description: "Unit 101 (Sunset Manor) - John Doe", time: "2m ago", type: "success", isRead: false },
+  { id: 2, title: "Lease Expiring", description: "Sarah Williams (Unit 202) expires in 30 days", time: "1h ago", type: "warning", isRead: false },
+  { id: 3, title: "Maintenance Request", description: "New request: Water leakage in Unit 305", time: "3h ago", type: "info", isRead: false },
+  { id: 4, title: "Payment Overdue", description: "Michael Chen (Unit 401) is 3 days late", time: "1d ago", type: "error", isRead: true },
+];
+
+export default function Layout() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { role, setRole, selectedLandlord, setSelectedLandlordId, selectedLandlordId, landlords } = useRole();
+  
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
+  const unreadCount = notifications.filter(n => !n.isRead).length;
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 1024) setIsCollapsed(true);
+      else setIsCollapsed(false);
+    };
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const markAsRead = (id: number) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, isRead: true } : n));
+  };
+
+  const markAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    toast.success("All notifications cleared");
+  };
+
+  const getNotificationIcon = (type: string) => {
+    switch (type) {
+      case "success": return <CheckCircle2 className="h-4 w-4 text-emerald-500" />;
+      case "warning": return <Clock className="h-4 w-4 text-amber-500" />;
+      case "info": return <FileText className="h-4 w-4 text-blue-500" />;
+      case "error": return <AlertTriangle className="h-4 w-4 text-red-500" />;
+      default: return <Bell className="h-4 w-4 text-muted-foreground" />;
+    }
+  };
+
+  return (
+    <div className="flex h-screen bg-background overflow-hidden relative font-sans tracking-tight selection:bg-primary/10 selection:text-primary">
+      {/* Mobile Overlay */}
+      {isMobileOpen && (
+        <div 
+          className="fixed inset-0 bg-background/80 backdrop-blur-sm z-[90] lg:hidden animate-in fade-in duration-300"
+          onClick={() => setIsMobileOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside 
+        className={cn(
+          "h-full border-r bg-muted/20 flex flex-col shrink-0 transition-all duration-500 ease-out z-[100] overflow-hidden",
+          isCollapsed ? "w-[80px]" : "w-64",
+          isMobileOpen ? "fixed inset-y-0 left-0 translate-x-0 w-64 shadow-2xl" : "hidden lg:flex translate-x-0"
+        )}
+      >
+        <div className={cn("p-6 flex items-center justify-between", isCollapsed && "px-4 justify-center")}>
+          <div className="flex items-center gap-3">
+            <div className="h-12 w-12 bg-white rounded-2xl flex items-center justify-center shadow-xl shadow-black/[0.03] shrink-0 border border-muted transition-all hover:scale-110 active:scale-95 cursor-pointer">
+              <div className="h-8 w-8 bg-primary rounded-lg flex items-center justify-center text-white font-black text-xl">M</div>
+            </div>
+            {!isCollapsed && (
+              <span className="font-black text-xl tracking-tighter animate-in fade-in slide-in-from-left-2 duration-500">
+                <span className="text-primary tracking-tight">Mero</span>
+                <span className="text-orange-500 tracking-tight">Nest</span>
+                <span className="text-primary text-2xl">.</span>
+              </span>
+            )}
+          </div>
+        </div>
+
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden no-scrollbar px-4 space-y-1 py-4">
+          <NavGroup title={isCollapsed ? "" : "Primary"}>
+            <NavItem icon={<Home className="h-5 w-5" />} label="Dashboard" to="/" collapsed={isCollapsed} active={location.pathname === "/"} />
+            <NavItem icon={<Building2 className="h-5 w-5" />} label="Properties" to="/properties" collapsed={isCollapsed} active={location.pathname.startsWith("/properties")} />
+            <NavItem icon={<Layers className="h-5 w-5" />} label="Units" to="/units" collapsed={isCollapsed} active={location.pathname.startsWith("/units")} />
+            <NavItem icon={<Users className="h-5 w-5" />} label="Residents" to="/tenants" collapsed={isCollapsed} active={location.pathname === "/tenants"} />
+          </NavGroup>
+
+          <NavGroup title={isCollapsed ? "" : "Management"}>
+            <NavItem icon={<Wrench className="h-5 w-5" />} label="Maintenance" to="/maintenance" collapsed={isCollapsed} active={location.pathname === "/maintenance"} pulse={true} />
+            <NavItem icon={<Calendar className="h-5 w-5" />} label="Schedules" to="/reminders" collapsed={isCollapsed} active={location.pathname === "/reminders"} />
+            <NavItem icon={<FileText className="h-5 w-5" />} label="Contracts" to="/leases" collapsed={isCollapsed} active={location.pathname === "/leases"} />
+          </NavGroup>
+
+          <NavGroup title={isCollapsed ? "" : "Accounting"}>
+            <NavItem icon={<Wallet className="h-5 w-5" />} label="Transactions" to="/finance" collapsed={isCollapsed} active={location.pathname === "/finance"} />
+          </NavGroup>
+        </nav>
+
+        <div className="p-4 mt-auto border-t bg-muted/5">
+          <Button 
+            variant="ghost" 
+            className={cn(
+              "w-full rounded-2xl h-12 gap-3 justify-start font-black text-[10px] uppercase tracking-widest text-muted-foreground hover:bg-red-50 hover:text-red-500 transition-all",
+              isCollapsed && "px-0 justify-center"
+            )}
+            onClick={() => navigate("/login")}
+          >
+            <LogOut className="h-5 w-5" />
+            {!isCollapsed && "Terminate Session"}
+          </Button>
+        </div>
+      </aside>
+
+      {/* Main Content Area */}
+      <main className="flex-1 flex flex-col h-full bg-background relative overflow-hidden">
+        {/* Modern Navbar */}
+        <header className="h-20 border-b bg-background/60 backdrop-blur-2xl px-6 flex items-center justify-between sticky top-0 z-50">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="icon" className="lg:hidden rounded-xl" onClick={() => setIsMobileOpen(true)}>
+              <Menu className="h-6 w-6" />
+            </Button>
+            <div className="hidden md:flex items-center gap-2 group">
+              <div className="h-10 w-10 flex items-center justify-center rounded-2xl bg-muted/50 text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-all duration-300">
+                <Search className="h-5 w-5" />
+              </div>
+              <Input 
+                placeholder="Global Search (CTRL+K)" 
+                className="w-72 bg-transparent border-none focus-visible:ring-0 font-bold text-sm tracking-tight placeholder:text-muted-foreground/50 transition-width duration-300 focus:w-96" 
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {/* Notifications Popover */}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="icon" className="rounded-2xl h-11 w-11 border-muted bg-background shadow-sm hover:scale-105 transition-all relative">
+                  <Bell className="h-5 w-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 h-5 w-5 bg-primary text-white text-[10px] font-black flex items-center justify-center rounded-full ring-4 ring-background animate-bounce">
+                      {unreadCount}
+                    </span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-96 p-0 border-none shadow-2xl rounded-3xl overflow-hidden mt-4" align="end">
+                <div className="p-5 bg-primary flex items-center justify-between text-white">
+                  <div>
+                    <h3 className="text-lg font-black tracking-tight leading-none">Notifications</h3>
+                    <p className="text-[10px] font-bold uppercase tracking-widest opacity-80 mt-1.5">You have {unreadCount} new alerts</p>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-8 text-[10px] font-black uppercase text-white hover:bg-white/20 rounded-xl" onClick={markAllAsRead}>
+                    Clear All
+                  </Button>
+                </div>
+                <div className="max-h-[70vh] overflow-y-auto py-2 p-2">
+                  {notifications.map((n) => (
+                    <div 
+                      key={n.id} 
+                      className={cn(
+                        "p-4 rounded-2xl flex gap-4 transition-all hover:bg-muted/50 cursor-pointer group",
+                        !n.isRead && "bg-muted/20"
+                      )}
+                      onClick={() => markAsRead(n.id)}
+                    >
+                      <div className="h-10 w-10 shrink-0 rounded-xl bg-background border shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform">
+                        {getNotificationIcon(n.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-foreground leading-tight">{n.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.description}</p>
+                        <p className="text-[10px] font-black uppercase text-primary/70 tracking-tighter mt-1">{n.time}</p>
+                      </div>
+                      {!n.isRead && <div className="h-2 w-2 rounded-full bg-primary mt-2 shrink-0 animate-pulse" />}
+                    </div>
+                  ))}
+                </div>
+                <div className="p-3 bg-muted/10 border-t">
+                  <Button variant="ghost" className="w-full text-xs font-black uppercase tracking-widest rounded-xl hover:bg-primary/5 hover:text-primary transition-all">
+                    View Enterprise Activity Hub
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
+
+            <div className="h-8 w-px bg-muted mx-1" />
+
+            {/* Profile Section */}
+            <div className="flex items-center gap-3 bg-muted/20 pl-1.5 pr-4 py-1.5 rounded-2xl border border-muted hover:border-primary/20 transition-all group cursor-pointer">
+              <div className="h-10 w-10 rounded-xl overflow-hidden bg-primary shadow-lg shadow-primary/20 ring-2 ring-background group-hover:scale-110 transition-transform">
+                <img src={role === "Landlord" ? "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=100" : "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100"} alt="" className="h-full w-full object-cover" />
+              </div>
+              <div className="hidden sm:block text-left">
+                <p className="text-xs font-black tracking-tight">{role === "Landlord" ? "Admin Account" : "Tenant Portal"}</p>
+                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{role}</p>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {/* Viewport content */}
+        <section className="flex-1 overflow-y-auto no-scrollbar scroll-smooth p-6 md:p-8 lg:p-10">
+          <div className="max-w-7xl mx-auto w-full pb-20">
+            <Outlet />
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
+
+function NavGroup({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="py-2">
+      {title && <p className="text-[9px] font-black uppercase tracking-[0.2em] text-muted-foreground/50 px-3 mb-2">{title}</p>}
+      <div className="space-y-1">{children}</div>
+    </div>
+  );
+}
+
+function NavItem({ icon, label, to, collapsed, active, pulse }: { icon: React.ReactNode; label: string; to: string; collapsed: boolean; active: boolean; pulse?: boolean }) {
+  return (
+    <Link 
+      to={to} 
+      className={cn(
+        "flex items-center gap-3 px-3 h-11 rounded-2xl transition-all relative group",
+        active ? "bg-primary text-white shadow-lg shadow-primary/25" : "text-muted-foreground hover:bg-primary/5 hover:text-primary",
+        collapsed && "px-0 justify-center"
+      )}
+    >
+      <div className={cn("transition-transform group-hover:scale-110 group-active:scale-95", pulse && !active && "animate-pulse")}>
+        {icon}
+      </div>
+      {!collapsed && (
+        <span className="text-sm font-black tracking-tight">{label}</span>
+      )}
+      {active && collapsed && (
+        <div className="absolute left-0 w-1 h-6 bg-white rounded-r-full" />
+      )}
+      {active && !collapsed && (
+        <div className="absolute right-3">
+          <CheckCircle2 className="h-4 w-4 opacity-50" />
+        </div>
+      )}
+      {!active && !collapsed && label === "Maintenance" && (
+         <Badge className="absolute right-3 bg-red-500 scale-75 border-none shadow-lg text-[9px] font-bold px-1.5 h-4 flex items-center">
+            5
+         </Badge>
+      )}
+    </Link>
+  );
+}
