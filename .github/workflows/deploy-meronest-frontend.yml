@@ -1,0 +1,65 @@
+name: meronest-frontend-ci-cd
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          build-args: |
+            VITE_API_URL=https://api.meronest.com
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/meronest-frontend:latest
+            ghcr.io/${{ github.repository_owner }}/meronest-frontend:${{ github.sha }}
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: production
+    steps:
+      - name: Deploy frontend release on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          GHCR_USER: ${{ secrets.GHCR_USER }}
+          GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          envs: GHCR_USER,GHCR_TOKEN
+          script: |
+            set -euo pipefail
+            if [[ -n "${GHCR_USER:-}" && -n "${GHCR_TOKEN:-}" ]]; then
+              echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u "$GHCR_USER" --password-stdin
+            fi
+            sudo DEPLOY_ROOT=/opt/apps APP_SLUG=meronest SHARED_SQL_ROOT=/opt/shared/sqlserver /opt/apps/meronest/scripts/deploy_app.sh
