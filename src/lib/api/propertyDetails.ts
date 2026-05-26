@@ -115,7 +115,9 @@ export async function getPropertyUnitsApi(
 }
 
 export async function createUnitApi(propertyId: number, body: CreateUnitRequest): Promise<UnitDto> {
-  const BASE_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? "http://localhost:5135";
+  const BASE_URL =
+    (import.meta.env.VITE_API_URL as string | undefined) ??
+    (typeof window !== "undefined" ? window.location.origin : "http://localhost:5135");
   const token = localStorage.getItem("auth-token");
 
   const response = await fetch(`${BASE_URL}/api/properties/${propertyId}/units`, {

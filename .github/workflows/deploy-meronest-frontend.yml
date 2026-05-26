@@ -62,7 +62,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
-            VITE_API_URL=https://api.meronest.com
+            VITE_API_URL=https://meronest.com
           tags: |
             ghcr.io/${{ github.repository_owner }}/meronest-frontend:latest
             ghcr.io/${{ github.repository_owner }}/meronest-frontend:${{ github.sha }}
@@ -104,5 +104,64 @@ jobs:
             if [[ -n "${GHCR_USER:-}" && -n "${GHCR_TOKEN:-}" ]]; then
               echo "$GHCR_TOKEN" | sudo docker login ghcr.io -u "$GHCR_USER" --password-stdin
             fi
+
+            COMPOSE_FILE=/opt/apps/meronest/infra/docker/docker-compose.prod.yml
+            CADDY_FILE=/opt/apps/meronest/infra/docker/Caddyfile
+
+            # Keep frontend API base on app domain to avoid client-side api subdomain DNS cache issues.
+            sudo sed -i 's#VITE_API_URL: https://${APP_API_DOMAIN}#VITE_API_URL: https://${APP_DOMAIN}#' "$COMPOSE_FILE"
+
+            # Ensure same-origin API proxy is present on app domain.
+            if ! sudo grep -q 'handle /api/\*' "$CADDY_FILE"; then
+              sudo tee "$CADDY_FILE" >/dev/null <<'EOF'
+{
+  default_sni 209.50.241.243
+  fallback_sni 209.50.241.243
+}
+
+{$APP_DOMAIN} {
+  encode zstd gzip
+
+  handle /api/* {
+    reverse_proxy backend:5135
+  }
+
+  handle /health {
+    reverse_proxy backend:5135
+  }
+
+  handle {
+    reverse_proxy frontend:80
+  }
+}
+
+www.{$APP_DOMAIN} {
+  redir https://{$APP_DOMAIN}{uri} 308
+}
+
+{$APP_API_DOMAIN} {
+  encode zstd gzip
+  reverse_proxy backend:5135
+}
+
+{$APP_JOBS_DOMAIN} {
+  encode zstd gzip
+  reverse_proxy backend:5145
+}
+
+http://209.50.241.243, http://209.50.241.243:80 {
+  encode zstd gzip
+  reverse_proxy backend:5135
+}
+
+https://209.50.241.243, https://209.50.241.243:443 {
+  tls internal
+  encode zstd gzip
+  reverse_proxy backend:5135
+}
+EOF
+            fi
+
             sudo docker compose -f /opt/apps/meronest/infra/docker/docker-compose.prod.yml --env-file /opt/apps/meronest/infra/docker/.env build frontend
             sudo DEPLOY_ROOT=/opt/apps APP_SLUG=meronest SKIP_PULL=true SHARED_SQL_ROOT=/opt/shared/sqlserver /opt/apps/meronest/scripts/deploy_app.sh
+            sudo docker compose -f /opt/apps/meronest/infra/docker/docker-compose.prod.yml --env-file /opt/apps/meronest/infra/docker/.env restart caddy

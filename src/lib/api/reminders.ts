@@ -61,7 +61,9 @@ export interface RentReminderPreviewRequest {
   policy?: RentInvoiceReminderPolicy;
 }
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5135";
+const BASE_URL =
+  import.meta.env.VITE_API_URL ??
+  (typeof window !== "undefined" ? window.location.origin : "http://localhost:5135");
 const GLOBAL_POLICY_STORAGE_KEY = "rent-invoice-reminder-policy-global";
 const LEASE_POLICY_STORAGE_PREFIX = "rent-invoice-reminder-policy-lease-";
 

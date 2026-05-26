@@ -1,7 +1,9 @@
 import createClient from "openapi-fetch";
 import type { paths } from "./schema.d.ts";
 
-const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:5135";
+const BASE_URL =
+  import.meta.env.VITE_API_URL ??
+  (typeof window !== "undefined" ? window.location.origin : "http://localhost:5135");
 
 export const apiClient = createClient<paths>({ baseUrl: BASE_URL });
 
